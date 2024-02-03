@@ -2,6 +2,8 @@
 
 namespace Ms\General\Iblock;
 
+use Bitrix\Main\Application;
+
 class Sections {
 
     private int $iblockId;
@@ -15,6 +17,7 @@ class Sections {
     static function getInstance(int $iblockId)
     {
         if (!isset(static::$instance[$iblockId])) {
+
             static::$instance[$iblockId] = new static;
             static::$instance[$iblockId]->iblockId = $iblockId;
         }
@@ -26,10 +29,23 @@ class Sections {
     {
         if ($this->base === null) {
 
-            $this->base = [
-                'tree' => $this->getTreeBase(),
-                'path' => $this->getTreeBasePath,
-            ];
+            $cache = Application::getInstance()->getManagedCache();
+
+            $cacheId = __CLASS__ . '::' . __FUNCTION__;
+
+            if ($cache->read(3600 * 24, $cacheId)) {
+
+                $this->base = $cache->get($cacheId);
+
+            } else {
+
+                $this->base = [
+                    'tree' => $this->getTreeBase(),
+                    'path' => $this->getTreeBasePath,
+                ];
+
+                $cache->set($cacheId, $this->base);
+            }
         }
 
         return $this->base;
@@ -61,7 +77,6 @@ class Sections {
         if ($id === null) {
 
             $list = \Bitrix\Iblock\SectionTable::query()
-                ->setCacheTtl(3600 * 24)
                 ->setSelect([
                     'ID',
                     'IBLOCK_SECTION_ID',
