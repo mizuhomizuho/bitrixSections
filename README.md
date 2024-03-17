@@ -1,8 +1,12 @@
 # bitrixSections
 
-Мне кажется этого не хватает в bitrix
+I think this is missing in Bitrix...
+
+### Use:
 
 ```php
-\Ms\General\Iblock\Sections::getInstance(MAIN_CATALOG_IBLOCK_ID)->get()['path'][888],
-\Ms\General\Iblock\Sections::getInstance(MAIN_CATALOG_IBLOCK_ID)->getEl(888)
+use \Ms\General\Iblock\Sections;
+
+Sections::getInstance(MAIN_CATALOG_IBLOCK_ID)->get()['path'][888],
+Sections::getInstance(MAIN_CATALOG_IBLOCK_ID)->getEl(888)
 ```
