@@ -62,7 +62,7 @@ class Sections {
         return eval(
             'return $sections[\'tree\'][' .
             implode('][\'children\'][', $sections['path'][$sectionId]) .
-            ']' . (count($sections['path'][$sectionId]) === 2 ? '' : '[\'children\'][' . $sectionId . ']') . ';'
+            '][\'children\'][' . $sectionId . '];'
         );
     }
 
