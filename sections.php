@@ -59,9 +59,11 @@ class Sections {
             return $sections['tree'][$sectionId];
         }
 
-        return eval('return $sections[\'tree\'][' .
+        return eval(
+            'return $sections[\'tree\'][' .
             implode('][\'children\'][', $sections['path'][$sectionId]) .
-            '][\'children\'][' . $sectionId . '];');
+            ']' . (count($sections['path'][$sectionId]) === 2 ? '' : '[\'children\'][' . $sectionId . ']') . ';'
+        );
     }
 
     private function getTreeBase(
