@@ -53,16 +53,24 @@ class Sections {
 
     private function sortAndCalcCount(array $tree): array
     {
-        usort($tree, fn($a, $b) => strcmp($a['el']['SORT'], $b['el']['SORT']));
+        $forSort = [];
+        foreach ($tree as $treeItem) {
+            $forSort[$treeItem['el']['ID']] = $treeItem['el']['SORT'];
+        }
+        asort($forSort);
+        $treeSorted = [];
+        foreach ($forSort as $elK => $sort) {
 
-        foreach ($tree as $elK => $el) {
+            $el = $tree[$elK];
+
+            $treeSorted[$elK] = $el;
 
             if (isset($el['children'])) {
                 $fns = __FUNCTION__;
-                $tree[$elK]['children'] = $this->$fns($el['children']);
+                $treeSorted[$elK]['children'] = $this->$fns($el['children']);
             }
 
-            $return[$listV['ID']]['count'] = \Bitrix\Iblock\SectionElementTable::query()
+            $treeSorted[$elK]['count'] = \Bitrix\Iblock\SectionElementTable::query()
                 ->setSelect(['COUNT_ALL'])
                 ->registerRuntimeField(
                     '',
@@ -80,13 +88,13 @@ class Sections {
                         ],
                     ]
                 )
-                ->where('IBLOCK_SECTION_ID', '=', $listV['ID'])
+                ->where('IBLOCK_SECTION_ID', '=', $elK)
                 ->where('els.ACTIVE', '=', 'Y')
                 ->where('els.IBLOCK_ID', '=', $this->iblockId)
                 ->fetch()['COUNT_ALL'];
         }
 
-        return $tree;
+        return $treeSorted;
     }
 
     function getEl(string|int $sectionId): array
@@ -96,6 +104,10 @@ class Sections {
         if (!isset($sections['path'][$sectionId])) {
             return $sections['tree'][$sectionId];
         }
+
+        var_dump('return $sections[\'tree\'][' .
+            implode('][\'children\'][', $sections['path'][$sectionId]) .
+            '][\'children\'][' . $sectionId . '];');
 
         return eval('return $sections[\'tree\'][' .
             implode('][\'children\'][', $sections['path'][$sectionId]) .
