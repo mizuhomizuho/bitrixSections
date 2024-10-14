@@ -1,14 +1,13 @@
 <?php
 
-namespace Ms\General\Iblock;
-
-use Bitrix\Main\Application;
+namespace General\Iblock;
 
 class Sections {
 
     private int $iblockId;
     private ?array $base = null;
     private array $getTreeBasePath = [];
+    private array $getTreeBaseCodePath = [];
 
     private static array $instance = [];
 
@@ -29,19 +28,20 @@ class Sections {
     {
         if ($this->base === null) {
 
-            $cache = Application::getInstance()->getManagedCache();
+            $cache = \Bitrix\Main\Application::getInstance()->getManagedCache();
 
             $cacheId = __CLASS__ . '::' . __FUNCTION__;
 
-            if ($cache->read(3600 * 24, $cacheId)) {
+            if ($cache->read(3600 * 24 * 365 * 888, $cacheId)) {
 
                 $this->base = $cache->get($cacheId);
 
             } else {
 
                 $this->base = [
-                    'tree' => $this->getTreeBase(),
+                    'tree' => $this->sortAndCalcCount($this->getTreeBase()),
                     'path' => $this->getTreeBasePath,
+                    'codePath' => $this->getTreeBaseCodePath,
                 ];
 
                 $cache->set($cacheId, $this->base);
@@ -49,6 +49,44 @@ class Sections {
         }
 
         return $this->base;
+    }
+
+    private function sortAndCalcCount(array $tree): array
+    {
+        usort($tree, fn($a, $b) => strcmp($a['el']['SORT'], $b['el']['SORT']));
+
+        foreach ($tree as $elK => $el) {
+
+            if (isset($el['children'])) {
+                $fns = __FUNCTION__;
+                $tree[$elK]['children'] = $this->$fns($el['children']);
+            }
+
+            $return[$listV['ID']]['count'] = \Bitrix\Iblock\SectionElementTable::query()
+                ->setSelect(['COUNT_ALL'])
+                ->registerRuntimeField(
+                    '',
+                    new \Bitrix\Main\ORM\Fields\ExpressionField(
+                        'COUNT_ALL',
+                        'COUNT(*)',
+                    )
+                )
+                ->registerRuntimeField(
+                    'els',
+                    [
+                        'data_type' => \Bitrix\Iblock\ElementTable::class,
+                        'reference' => [
+                            '=ref.ID' => 'this.IBLOCK_ELEMENT_ID',
+                        ],
+                    ]
+                )
+                ->where('IBLOCK_SECTION_ID', '=', $listV['ID'])
+                ->where('els.ACTIVE', '=', 'Y')
+                ->where('els.IBLOCK_ID', '=', $this->iblockId)
+                ->fetch()['COUNT_ALL'];
+        }
+
+        return $tree;
     }
 
     function getEl(string|int $sectionId): array
@@ -59,11 +97,9 @@ class Sections {
             return $sections['tree'][$sectionId];
         }
 
-        return eval(
-            'return $sections[\'tree\'][' .
+        return eval('return $sections[\'tree\'][' .
             implode('][\'children\'][', $sections['path'][$sectionId]) .
-            '][\'children\'][' . $sectionId . '];'
-        );
+            '][\'children\'][' . $sectionId . '];');
     }
 
     private function getTreeBase(
@@ -71,6 +107,7 @@ class Sections {
         array &$list = [],
         ?string $id = null,
         array $path = [],
+        string $codePath = '',
 
     ): array {
 
@@ -98,20 +135,26 @@ class Sections {
                 if ($path === []) {
 
                     $catPath = [$id];
+                    $catCodePath = '';
                 }
                 else {
 
                     $catPath = $path;
                     $catPath[] = $id;
+
+                    $catCodePath = $codePath;
+                    $catCodePath .= '/' . $listV['CODE'];
                 }
 
                 if($catPath === [null]) {
 
                     $catPath = [];
+                    $catCodePath = '';
                 }
                 else {
 
                     $this->getTreeBasePath[$listV['ID']] = $catPath;
+                    $this->getTreeBaseCodePath[$listV['ID']] = $catCodePath;
                 }
 
                 $return[$listV['ID']]['el'] = $listV;
@@ -119,7 +162,7 @@ class Sections {
 
                 $fns = __FUNCTION__;
 
-                $return[$listV['ID']]['children'] = $this->$fns($list, $listV['ID'], $catPath);
+                $return[$listV['ID']]['children'] = $this->$fns($list, $listV['ID'], $catPath, $catCodePath);
 
                 if(!count($return[$listV['ID']]['children'])) {
 
