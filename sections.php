@@ -135,7 +135,7 @@ class Sections {
                 if ($path === []) {
 
                     $catPath = [$id];
-                    $catCodePath = '';
+                    $catCodePath = '/' . $listV['CODE'];
                 }
                 else {
 
