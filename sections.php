@@ -44,6 +44,8 @@ class Sections {
                     'codePath' => $this->getTreeBaseCodePath,
                 ];
 
+                $this->setCount();
+
                 $cache->set($cacheId, $this->base);
             }
         }
@@ -51,7 +53,7 @@ class Sections {
         return $this->base;
     }
 
-    function setCount(array $sections): array
+    private function setCount(): void
     {
         $iblockId = $this->iblockId;
         $stack = array();
@@ -101,14 +103,10 @@ class Sections {
             $stack[(int)$section['ID']]['section'] = $section;
         }
 
-        $c = 0;
-        $getParentId = function($section,$chain=array()) use (&$getParentId,$stack,&$c)
+        $getParentId = function($section,$chain=array()) use (&$getParentId,$stack)
         {
             if(!($parentSectionId=(int)$section['section']['IBLOCK_SECTION_ID']) || !($parentSection=$stack[$parentSectionId]))
                 return $chain;
-            $c++;
-            if($c>20)
-                return;
             $chain[] = $parentSectionId;
             $chain = $getParentId($parentSection,$chain);
             return $chain;
@@ -116,7 +114,6 @@ class Sections {
 
         foreach($stack as $sectionId=>$section)
         {
-            $c=0;
             $stack[$sectionId]['recursiveCount'] += $section['count'];
             $parentIds = $getParentId($section);
             foreach($parentIds as $parentId)
@@ -127,21 +124,19 @@ class Sections {
 
         foreach($stack as $sectionId=>$section)
         {
-            if (!isset($sections['path'][$sectionId])) {
-                $sections['tree'][$sectionId]['count'] = $section['count'];
-                $sections['tree'][$sectionId]['recursiveCount'] = $section['recursiveCount'];
+            if (!isset($this->base['path'][$sectionId])) {
+                $this->base['tree'][$sectionId]['count'] = $section['count'];
+                $this->base['tree'][$sectionId]['recursiveCount'] = $section['recursiveCount'];
             }
             else {
-                eval('$sections[\'tree\'][' .
-                    implode('][\'children\'][', $sections['path'][$sectionId]) .
+                eval('$this->base[\'tree\'][' .
+                    implode('][\'children\'][', $this->base['path'][$sectionId]) .
                     '][\'children\'][' . $sectionId . '][\'count\'] = $section[\'count\'];');
-                eval('$sections[\'tree\'][' .
-                    implode('][\'children\'][', $sections['path'][$sectionId]) .
+                eval('$this->base[\'tree\'][' .
+                    implode('][\'children\'][', $this->base['path'][$sectionId]) .
                     '][\'children\'][' . $sectionId . '][\'recursiveCount\'] = $section[\'recursiveCount\'];');
             }
         }
-
-        return $sections;
     }
 
     private function sort(array $tree): array
