@@ -105,10 +105,6 @@ class Sections {
             return $sections['tree'][$sectionId];
         }
 
-        var_dump('return $sections[\'tree\'][' .
-            implode('][\'children\'][', $sections['path'][$sectionId]) .
-            '][\'children\'][' . $sectionId . '];');
-
         return eval('return $sections[\'tree\'][' .
             implode('][\'children\'][', $sections['path'][$sectionId]) .
             '][\'children\'][' . $sectionId . '];');
