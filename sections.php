@@ -39,7 +39,7 @@ class Sections {
             } else {
 
                 $this->base = [
-                    'tree' => $this->sortAndCalcCount($this->getTreeBase()),
+                    'tree' => $this->sort($this->getTreeBase()),
                     'path' => $this->getTreeBasePath,
                     'codePath' => $this->getTreeBaseCodePath,
                 ];
@@ -51,7 +51,100 @@ class Sections {
         return $this->base;
     }
 
-    private function sortAndCalcCount(array $tree): array
+    function setCount(array $sections): array
+    {
+        $iblockId = $this->iblockId;
+        $stack = array();
+        $entity = \Bitrix\Iblock\Model\Section::compileEntityByIblock($iblockId);
+        $rsSection = $entity::getList(array(
+            'order' => array(
+                'DEPTH_LEVEL' => 'DESC',
+            ),
+            'filter' => array(
+                'IBLOCK_ID' => $iblockId,
+                'ACTIVE' => 'Y',
+            ),
+            'select' =>  array(
+                'ID',
+                'DEPTH_LEVEL',
+                'IBLOCK_SECTION_ID',
+            ),
+        ));
+
+        while ($section=$rsSection->fetch())
+        {
+            $resultCount = \Bitrix\Iblock\SectionElementTable::getList(array(
+                'runtime' => array(
+                    new \Bitrix\Main\ORM\Fields\ExpressionField('COUNT',  'COUNT(*)' )
+                ),
+                'filter' => array(
+                    'IBLOCK_SECTION_ID' => $section['ID'],
+                    'IBLOCK_ELEMENT.ACTIVE' => 'Y',
+                    'IBLOCK_ELEMENT.IBLOCK_ID' => $iblockId,
+                ),
+                'select' => array(
+                    'COUNT'
+                ),
+            ));
+
+            $count = 0;
+            if($elementCount=$resultCount->fetch())
+                $count = (int)$elementCount['COUNT'];
+
+            if(!array_key_exists((int)$section['IBLOCK_SECTION_ID'],$stack))
+                $stack[(int)$section['IBLOCK_SECTION_ID']] = array('count'=>0,'recursiveCount'=>0,'subsections'=>0);
+            if(!array_key_exists((int)$section['ID'],$stack))
+                $stack[(int)$section['ID']] = array('count'=>0,'recursiveCount'=>0,'subsections'=>0);
+
+            $stack[(int)$section['IBLOCK_SECTION_ID']]['subsections']++;
+            $stack[(int)$section['ID']]['count'] = $count;
+            $stack[(int)$section['ID']]['section'] = $section;
+        }
+
+        $c = 0;
+        $getParentId = function($section,$chain=array()) use (&$getParentId,$stack,&$c)
+        {
+            if(!($parentSectionId=(int)$section['section']['IBLOCK_SECTION_ID']) || !($parentSection=$stack[$parentSectionId]))
+                return $chain;
+            $c++;
+            if($c>20)
+                return;
+            $chain[] = $parentSectionId;
+            $chain = $getParentId($parentSection,$chain);
+            return $chain;
+        };
+
+        foreach($stack as $sectionId=>$section)
+        {
+            $c=0;
+            $stack[$sectionId]['recursiveCount'] += $section['count'];
+            $parentIds = $getParentId($section);
+            foreach($parentIds as $parentId)
+            {
+                $stack[$parentId]['recursiveCount'] += $section['count'];
+            }
+        }
+
+        foreach($stack as $sectionId=>$section)
+        {
+            if (!isset($sections['path'][$sectionId])) {
+                $sections['tree'][$sectionId]['count'] = $section['count'];
+                $sections['tree'][$sectionId]['recursiveCount'] = $section['recursiveCount'];
+            }
+            else {
+                eval('$sections[\'tree\'][' .
+                    implode('][\'children\'][', $sections['path'][$sectionId]) .
+                    '][\'children\'][' . $sectionId . '][\'count\'] = $section[\'count\'];');
+                eval('$sections[\'tree\'][' .
+                    implode('][\'children\'][', $sections['path'][$sectionId]) .
+                    '][\'children\'][' . $sectionId . '][\'recursiveCount\'] = $section[\'recursiveCount\'];');
+            }
+        }
+
+        return $sections;
+    }
+
+    private function sort(array $tree): array
     {
         $forSort = [];
         foreach ($tree as $treeItem) {
@@ -69,29 +162,6 @@ class Sections {
                 $fns = __FUNCTION__;
                 $treeSorted[$elK]['children'] = $this->$fns($el['children']);
             }
-
-            $treeSorted[$elK]['count'] = \Bitrix\Iblock\SectionElementTable::query()
-                ->setSelect(['COUNT_ALL'])
-                ->registerRuntimeField(
-                    '',
-                    new \Bitrix\Main\ORM\Fields\ExpressionField(
-                        'COUNT_ALL',
-                        'COUNT(*)',
-                    )
-                )
-                ->registerRuntimeField(
-                    'els',
-                    [
-                        'data_type' => \Bitrix\Iblock\ElementTable::class,
-                        'reference' => [
-                            '=ref.ID' => 'this.IBLOCK_ELEMENT_ID',
-                        ],
-                    ]
-                )
-                ->where('IBLOCK_SECTION_ID', '=', $elK)
-                ->where('els.ACTIVE', '=', 'Y')
-                ->where('els.IBLOCK_ID', '=', $this->iblockId)
-                ->fetch()['COUNT_ALL'];
         }
 
         return $treeSorted;
