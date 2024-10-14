@@ -162,12 +162,37 @@ class Sections {
         return $treeSorted;
     }
 
-    function getEl(string|int $sectionId): array
+    function getByCode(string $code): false|array
+    {
+        $sections = $this->get();
+
+        foreach ($sections['tree'] as $section) {
+            if ($section['el']['CODE'] === $code) {
+                return $section;
+            }
+        }
+
+        foreach ($sections['codePath'] as $id => $path) {
+            $pathExpl = explode('/', $path);
+            if ($pathExpl[count($pathExpl) - 1] === $code) {
+                return $this->getEl($id);
+            }
+        }
+
+        return false;
+    }
+
+    function getEl(string|int $sectionId): false|array
     {
         $sections = $this->get();
 
         if (!isset($sections['path'][$sectionId])) {
-            return $sections['tree'][$sectionId];
+            if (isset($sections['tree'][$sectionId])) {
+                return $sections['tree'][$sectionId];
+            }
+            else {
+                return false;
+            }
         }
 
         return eval('return $sections[\'tree\'][' .
@@ -227,7 +252,7 @@ class Sections {
                 else {
 
                     $this->getTreeBasePath[$listV['ID']] = $catPath;
-                    $this->getTreeBaseCodePath[$listV['ID']] = $catCodePath;
+                    $this->getTreeBaseCodePath[$listV['ID']] = $catCodePath . '/' . $listV['CODE'];
                 }
 
                 $return[$listV['ID']]['el'] = $listV;
